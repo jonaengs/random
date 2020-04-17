@@ -3,8 +3,8 @@ from inspect import signature
 class list(list):
     def __init__(self, seq=(), *args):
         """
-        Since [1, 2, 3] return base list, allow list(1, 2, 3) etc. 
-        Note behavior when passing one vs multiple iterators: 
+        Since [1, 2, 3] returns base list, allow list(1, 2, 3) etc. 
+        Note behavior when passing one vs multiple iterables: 
             list([]) = []
             list([], []) = [[], []]
         """
@@ -28,10 +28,10 @@ class list(list):
     def exclude(self, pred):
         return list(self.filter(lambda x: not pred(x)))
 
-    def reduce(self, func, base=None):
-        if self.isempty(): 
+    def reduce(self, func, base=None, reverse=False):
+        if self.isempty():
             return base
-        iterator = self.__iter__()
+        iterator = self.__iter__() if not reverse else reversed(self)
         acc = next(iterator) if base is None else base
         for elem in iterator:
             acc = func(acc, elem)
@@ -42,13 +42,14 @@ class list(list):
 
     def foldr(self, func, base):
         reverse_func = lambda acc, x: func(x, acc)
-        return list.reduce(reversed(self), reverse_func, base)
+        return list.reduce(self, reverse_func, base, reverse=True)
 
     def exists(self):
         return bool(self)
 
     def isempty(self):
         return not bool(self)
+
 
 
 def partial(func, *args, **kwargs):
@@ -68,8 +69,8 @@ print(product(0), product(1))
 
 
 a = list(10, 1, 2, 3)
-# print(a.foldl(lambda x, y: x - y, base=0))
-# print(a.foldr(lambda x, y: x - y, base=0))
+print(a.foldl(lambda x, y: x - y, base=0))
+print(a.foldr(lambda x, y: x - y, base=0))
 
 assert not isinstance([], list)
 assert all(
