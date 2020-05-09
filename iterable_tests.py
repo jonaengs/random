@@ -1,5 +1,5 @@
 # "tests" in the loosest meaning
-from iterable_methods import list, tuple, dict
+from iterable_methods import list, tuple, dict, IterableMethods
 from copy import deepcopy
 
 def dict_tests():
@@ -20,7 +20,7 @@ def dict_tests():
 
 
 def itermethods_test():
-    for _cls in (list, tuple):
+    for _cls in IterableMethods.__subclasses__():
         assert not isinstance([], _cls)
         assert all(
             isinstance(elem, _cls) for elem in 
@@ -43,18 +43,24 @@ def itermethods_test():
         fruits = _cls("apple", "pear", "banana", "pineapple")
         assert fruits.groupby(lambda f: f[0]) == dict({'a': ['apple'], 'p': ['pear', 'pineapple'], 'b': ['banana']})
 
+        nums = _cls(1, -1, 3, -100, 0, 88)
+        ispositive = lambda x: x > 0
+        pos, nonpos = nums.partition(ispositive)
+        assert (pos == _cls(1, 3, 88)) and (nonpos == _cls(-1, -100, 0))
+        assert nums.span(ispositive) == (nums[:1], nums[1:])
+
+        abs_pairs = lambda x: _cls(x, abs(x))
+        assert nums.flatmap(abs_pairs) == _cls(_cls(i, abs(i)) for i in nums).flatten()
+        
+        nested = list(list(list(1, 2), 3, 4, list(5, 6)), 7)
+        assert nested.flatten() == list(range(1, 8))
+
 
 def list_tests():
-    nested = list(list(list(1, 2), 3, 4, list(5, 6)), 7)
-    assert nested.flatten() == list(range(1, 8))
-
     a = list(1, 2, 3)
     b = a
     a += list(4, 5)
     assert b != a, "+= operation should no longer mutate"
-
-
-
 
 
 itermethods_test()

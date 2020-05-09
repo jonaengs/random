@@ -2,7 +2,7 @@ from abc import ABC
 from copy import deepcopy
 from collections.abc import Iterable
 
-class IterableMethods(ABC):  # abstract class
+class IterableMethods(ABC):  # abstract base class
 
     def __str__(self):
         return "c" + super().__str__()
@@ -10,9 +10,39 @@ class IterableMethods(ABC):  # abstract class
     def map(self, func):
         return self.__class__(map(func, self))
 
+    def flatmap(self, func):
+        result = list()
+        for elem in self:
+            result += list(func(elem))
+        return self.__class__(result)
+
     def foreach(self, func):
         for elem in self:
             func(elem)
+
+    def partition(self, pred):
+        a, b = list(), list()
+        for elem in self:
+            if pred(elem):
+                a.append(elem)
+            else:
+                b.append(elem)
+        return self.__class__(a), self.__class__(b)
+
+    def span(self, pred):
+        for i in range(len(self)):
+            if not pred(self[i]):
+                break
+        return self[:i], self[i:]
+
+    def flatten(self, flatten_strings=False):
+        flattened = list()
+        for elem in self:
+            if isinstance(elem, Iterable) and (flatten_strings or not type(elem) == str):
+                flattened += list(elem.flatten())
+            else:
+                flattened.append(elem)
+        return self.__class__(flattened)
 
     def filter(self, pred):
         return self.__class__(filter(pred, self))
@@ -63,18 +93,8 @@ class list(list, IterableMethods):
             seq = (seq, *args)
         return super().__init__(seq)
 
-    def flatten(self, all_iterables=False):
-        flattened = list()
-        for elem in self:
-            if type(elem) == self.__class__ \
-                or (all_iterables and isinstance(elem, Iterable)):
-                flattened += elem.flatten()
-            else:
-                flattened.append(elem)
-        return self.__class__(flattened)
-
     def __iadd__(self, other):
-        return self + other
+        return list(self + other)
 
 
 class tuple(tuple, IterableMethods):
