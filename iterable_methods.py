@@ -1,4 +1,6 @@
 from abc import ABC
+from copy import deepcopy
+from collections.abc import Iterable
 
 class IterableMethods(ABC):  # abstract class
 
@@ -34,6 +36,13 @@ class IterableMethods(ABC):  # abstract class
         reverse_func = lambda acc, x: func(x, acc)
         return self.reduce(reverse_func, base, reverse=True)
 
+    def groupby(self, id_func):
+        groups = dict()
+        groups.setdefault(list())
+        for elem in self:
+            groups[id_func(elem)] += list([elem])
+        return groups
+
     def exists(self):
         return bool(self)
 
@@ -48,41 +57,58 @@ class IterableMethods(ABC):  # abstract class
 class list(list, IterableMethods):
 
     def __init__(self, seq=(), *args):
-        """ Allow list(1, 2, 3) etc. Note behavior when passing one vs multiple iterables: 
-            list([]) = []
-            list([], []) = [[], []] """
+        """ Allow list(1, 2, 3) etc. 
+        []-constructor creates standard python list"""
         if args or not hasattr(seq, '__iter__'):
             seq = (seq, *args)
         return super().__init__(seq)
 
+    def flatten(self, all_iterables=False):
+        flattened = list()
+        for elem in self:
+            if type(elem) == self.__class__ \
+                or (all_iterables and isinstance(elem, Iterable)):
+                flattened += elem.flatten()
+            else:
+                flattened.append(elem)
+        return self.__class__(flattened)
+
+    def __iadd__(self, other):
+        return self + other
+
 
 class tuple(tuple, IterableMethods):
-
+    """ Allow tuple(1, 2, 3) etc. 
+    (,)-constructor creates standard python tuple"""
     def __new__(cls, seq=(), *args):
         if args or not hasattr(seq, '__iter__'):
             seq = (seq, *args)
         return super().__new__(cls, seq)
 
 
+class dict(dict):
+    def __getitem__(self, key):
+        try:
+            item = super().__getitem__(key)
+        except KeyError as key_error:
+            try:
+                item = self.default_value
+            except AttributeError:
+                raise key_error from None
+        return item
+    
+    def setdefault(self, default_value):
+        self.default_value = default_value
 
-# Sanity checks (aka crappy tests)
-for _cls in (list, tuple):
-    assert not isinstance([], _cls)
-    assert all(
-        isinstance(elem, _cls) for elem in 
-        (_cls(), _cls(1), _cls(1,2,3), _cls(_cls()), _cls(_cls(), _cls()), _cls(range(10)), _cls(i for i in range(10)))
-    )
+    def getdefault(self):  # let fail
+        return self.default_value
 
-    a = _cls(10, 1, 2, 3)
-    assert a.foldl(lambda x, y: x - y, base=0) == -16
-    assert a.foldr(lambda x, y: x - y, base=0) == 8  # 10 - (1 - (2 - (3 - 0))) = 10 - (1 - (-1))
-
-    items = _cls(_cls(i, i*2, i**2, i//2, i%6) for i in range(0, 37, 3))
-    assert items\
-        .filter(lambda l: any("5" in str(i) for i in l))\
-            .map(lambda l: l[0])\
-                .exclude(lambda n: n % 2 == 0)\
-                    .length == 2
+    def hasdefault(self):
+        try:
+            self.default_value
+        except AttributeError:
+            return False
+        return True
 
 
 def partial(func, *args, **kwargs):
@@ -90,8 +116,9 @@ def partial(func, *args, **kwargs):
         return func(*args, *extra_args, **kwargs, **extra_kwargs)
     return temp
 
+
 def poly(*coefficients, x):
-    return sum(constant * pow(x, i) for i, constant in enumerate(reversed(coefficients)))
+    return sum(constant * x**i for i, constant in enumerate(reversed(coefficients)))
 
 
 p_a1_b4_c4 = partial(poly, 1, 4, 4)
@@ -99,4 +126,3 @@ assert p_a1_b4_c4(x=-2) == 0
 
 product = partial(list(1,2,3).reduce, lambda acc, x: acc * x)
 assert product(0) == 0 and product(1) == 6
-
