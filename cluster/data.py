@@ -6,8 +6,8 @@ from sklearn.preprocessing import StandardScaler
 from itertools import cycle, islice
 
 
-np.random.seed(0)
-n_samples = 1500
+# np.random.seed(0)
+n_samples = 50
 
 
 noisy_circles = datasets.make_circles(n_samples=n_samples, factor=.5, noise=.05)
@@ -36,6 +36,5 @@ datasets = [
 
 
 def get_colors(y):
-    return np.array(list(islice(cycle(['#377eb8', '#ff7f00', '#4daf4a',
-                                                '#f781bf', '#a65628', '#984ea3',
-                                                '#999999', '#e41a1c', '#dede00']), int(max(y) + 1))))
+    color_codes = ['#377eb8', '#ff7f00', '#4daf4a', '#f781bf', '#a65628', '#984ea3', '#999999', '#e41a1c', '#dede00']
+    return np.array(list(islice(cycle(color_codes), int(max(y) + 1))))

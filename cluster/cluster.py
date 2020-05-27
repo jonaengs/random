@@ -7,8 +7,8 @@ from data import *
 from algorithms import k_means
 
 # Set up cluster parameters
-plt.figure(figsize=(9 * 1.3 + 2, 14.5))
-plt.subplots_adjust(left=.02, right=.98, bottom=.001, top=.96, wspace=.05, hspace=.01)
+# plt.figure(figsize=(9 * 1.3 + 2, 14.5))
+# plt.subplots_adjust(left=.02, right=.98, bottom=.001, top=.96, wspace=.05, hspace=.01)
 
 default_base = {'n_neighbors': 10,
                 'n_clusters': 3}
