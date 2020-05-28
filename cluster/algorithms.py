@@ -2,7 +2,11 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 from data import get_colors
+from scipy.spatial import KDTree
 
+
+def scatterplot(X, s=5, **kwargs):
+    plt.scatter(X[:, 0], X[:, 1], s=s, **kwargs)
 
 def distance(a):
     def distance(b):
@@ -43,7 +47,7 @@ def SSE(X, groups, centroids):
 
 
 def SSB(groups, centroids):
-    return sum( 
+    return sum(
         groups[i].size * np.sum(np.square(m - mi)) 
         for i, m in enumerate(centroids) 
         for mi in centroids
@@ -73,7 +77,7 @@ def k_means(X):
 
     for k in range(k_min, k_max):
         centroids = np.random.uniform(low=np.min(X), high=np.max(X), size=(k, 2))    # create and distribute centroids
-        for iteration in range(iterations):     
+        for iteration in range(iterations): 
             dist_funcs = (distance(c) for c in centroids)  # setup distance function for each centroid
             distances = np.array([np.apply_along_axis(f, 1, X) for f in dist_funcs])  # array of point distance from each centroid
             closest_centroid = np.argmin(distances, axis=0)  # each point's closest centroid 
@@ -106,12 +110,52 @@ def k_means(X):
         plt.xlabel(f"Silhouette score: {np.mean(silhouette):.2f}\nSSE: {SSE_score:.2f}\t SSB: {SSB_score:.2f}")
 
     
-    plt.show()
+    plt.show(block=False)
 
 
-def dbscan(X):
-    pass
+def dbscan(X):    
+    eps = -1
+    kdt = KDTree(X)
 
+    def dist_to_kth_neighbhor(kdtree, k):
+        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.query.html
+        query = kdt.query(X, k=k+1)  # add one because nearest neighbor no. 1 is always itself
+        distances = query[0][:,k]  # add one because nearest neighbor no. 1 is always itself
+        return distances
+
+    def set_eps_by_click(click):
+        nonlocal eps
+        eps = click.ydata
+        print("\nClicked on:", (click.xdata, click.ydata))
+        print("Eps set to:", eps,)
+        plt.close()
+
+    def plot_distances_and_listen(sorted_distances):
+        plt.plot(sorted_distances)
+        fig = plt.get_current_fig_manager()
+        plt.xlabel("Klikk på \"knekket\"!")
+        cid = fig.canvas.mpl_connect('button_press_event', set_eps_by_click)  # get button press coordinates
+        plt.show()
+        # fig.canvas.mpl_disconnect(cid)
+    
+    def classify_points(kdt, k):
+        neighbors = kdt.query_ball_point(X, eps)
+        core = [i for i in range(len(neighbors)) if len(neighbors[i]) > k]
+        border, noise = [], []
+        for i in range(len(neighbors)):
+            if i not in core:
+                if any(p in core for p in neighbors[i]):  # has one or more core point neighbors 
+                    border.append(i)
+                else:
+                    noise.append(i)
+        scatterplot(X[core], color=green); scatterplot(X[border], color=blue); scatterplot(X[noise], color=red)
+        plt.show()
+
+    for k in range(2, 6):
+        distances = dist_to_kth_neighbhor(kdt, k)
+        sorted_distances = np.sort(distances)
+        plot_distances_and_listen(sorted_distances)
+        classify_points(kdt, k)
 
 algorithms = (
     ('K-means', k_means),

@@ -7,7 +7,7 @@ from itertools import cycle, islice
 
 
 # np.random.seed(0)
-n_samples = 50
+n_samples = 1000
 
 
 noisy_circles = datasets.make_circles(n_samples=n_samples, factor=.5, noise=.05)
