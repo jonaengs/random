@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from data import get_colors
 from scipy.spatial import KDTree
+from typing import List, Set
 
 
 def scatterplot(X, s=5, **kwargs):
@@ -30,9 +31,6 @@ def silhouette_score(X, y, groups):
         
         s = (b - a) / max(a, b)
         scores.append(s)
-    #plt.figure(1000)
-    #plt.plot(sorted(scores))
-    #plt.show()
     return scores
 
 
@@ -88,8 +86,10 @@ def k_means(X):
                 plot_num += 1
                 colors = get_colors(closest_centroid)
                 plt.subplot(num_plot_rows, num_plot_cols, (iteration//skip) * num_plot_cols + (k - k_min + 1))  # 
-                plt.scatter(X[:, 0], X[:, 1], color=colors[closest_centroid], s=5)
-                plt.scatter(centroids[:, 0], centroids[:, 1], c='red', s=15)
+                scatterplot(X, color=colors[closest_centroid])  # previous lines commented out below
+                scatterplot(centroids, c='red', s=15) 
+                # plt.scatter(X[:, 0], X[:, 1], color=colors[closest_centroid], s=5)
+                # plt.scatter(centroids[:, 0], centroids[:, 1], c='red', s=15)
                 
             # update centroids for every iteration but the last
             if iteration < (iterations - 1):
@@ -113,9 +113,12 @@ def k_means(X):
     plt.show(block=False)
 
 
-def dbscan(X):    
-    eps = -1
+def dbscan(X):
+    eps_list = []
     kdt = KDTree(X)
+    k_min, k_max = 3, 7
+    k_range = k_max - k_min
+    plot_cols = 3
 
     def dist_to_kth_neighbhor(kdtree, k):
         # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.query.html
@@ -124,10 +127,9 @@ def dbscan(X):
         return distances
 
     def set_eps_by_click(click):
-        nonlocal eps
-        eps = click.ydata
+        eps_list.append(click.ydata)
         print("\nClicked on:", (click.xdata, click.ydata))
-        print("Eps set to:", eps,)
+        print("Eps set to:", eps_list[-1])
         plt.close()
 
     def plot_distances_and_listen(sorted_distances):
@@ -136,7 +138,7 @@ def dbscan(X):
         plt.xlabel("Klikk på \"knekket\"!")
         cid = fig.canvas.mpl_connect('button_press_event', set_eps_by_click)  # get button press coordinates
         plt.show()
-        # fig.canvas.mpl_disconnect(cid)
+        # fig.canvas.mpl_disconnect(cid)  # is this unnecessary?
     
     def classify_points(kdt, k):
         neighbors = kdt.query_ball_point(X, eps)
@@ -148,14 +150,92 @@ def dbscan(X):
                     border.append(i)
                 else:
                     noise.append(i)
-        scatterplot(X[core], color=green); scatterplot(X[border], color=blue); scatterplot(X[noise], color=red)
-        plt.show()
+        scatterplot(X[core], color="green"); scatterplot(X[border], color='blue'); scatterplot(X[noise], color='red')
+        return core, border, noise
 
-    for k in range(2, 6):
+    def cluster_core_points(core_indices, core_points):
+        def combine_clusters():
+            for i in range(len(clusters)):
+                for j in range(i+1, len(clusters)):
+                    cluster1, cluster2 = clusters[i], clusters[j]
+                    if cluster1 & cluster2:  # if clusters overlap, join them and remove one from the list
+                        cluster1.update(cluster2)
+                        del clusters[j]
+                        return combine_clusters()  # call itself
+
+        clusters: List[Set[int]] = []
+        core_kdt = KDTree(core_points)
+        neighbors = core_kdt.query_ball_point(core_points, eps)
+
+        for point_index, neighbor_list in enumerate(neighbors):
+            for cluster in clusters:
+                if point_index in cluster:
+                    cluster.update(set(neighbor_list))
+                    break
+            else:
+                clusters.append(set(neighbor_list))   
+        
+        combine_clusters()
+        return [np.array(core_indices)[list(cluster)] for cluster in clusters]
+
+    def find_closest_cluster(border_points, core_clusters_indices):
+        border_clusters = [[] for i in range(len(core_clusters_indices))]
+        neighbors = kdt.query_ball_point(border_points, eps)
+        for neighbor_list in neighbors:
+            for neighbor in neighbor_list[1:]:  # first is the border point itself
+                for i, cluster in enumerate(core_clusters_indices):
+                    if neighbor in cluster:
+                        border_clusters[i].append(neighbor_list[0])
+                        break
+
+        return border_clusters
+
+
+    def get_y(final_clusters):
+        y = []
+        for i in range(sum(len(cluster) for cluster in final_clusters)):
+            for j, cluster in enumerate(final_clusters):
+                if i in cluster:
+                    y.append(j)
+                    break
+            else:
+                print(f"cluster for {i} not found!")
+        return np.array(y)
+
+
+    for k in range(k_min, k_max):
         distances = dist_to_kth_neighbhor(kdt, k)
         sorted_distances = np.sort(distances)
         plot_distances_and_listen(sorted_distances)
-        classify_points(kdt, k)
+
+    plot_count = 0
+    for k in range(k_min, k_max):  # k >= D+1
+        plot_count += 1
+
+        eps = eps_list.pop(0)
+        plt.subplot(k_range, plot_cols, plot_count)
+        core_indices, border_indices, noise_indices = classify_points(kdt, k)
+        
+        core_clusters_indices = cluster_core_points(core_indices, X[core_indices])
+        border_clusters_indices = find_closest_cluster(X[border_indices], core_clusters_indices)
+
+        final_clusters = [np.append(core_clusters_indices[i], border_clusters_indices[i]).astype(int)\
+            for i in range(len(core_clusters_indices))]
+
+        plot_count += 1
+        plt.subplot(k_range, plot_cols, plot_count)
+        clusters_points = [X[cluster] for cluster in final_clusters]
+        for cluster in clusters_points:
+            scatterplot(cluster)
+
+        y = get_y(final_clusters)
+        final_points = np.concatenate(clusters_points)
+        print(final_points.shape)
+        print(y.shape)
+        # silhouette = silhouette_score(final_points, y, final_clusters)
+
+    
+    plt.show()
 
 algorithms = (
     ('K-means', k_means),
