@@ -116,6 +116,15 @@ for b in bools:
     else:
         all_true = False
 
+# slightly better
+for b in bools:
+    any_true |= b  # any_true = any_true or b
+    all_true &= b  # all_true = all_true and b
+
+# another approach
+any_true = sum(bools) > 0
+all_true = sum(bools) == len(bools)  # from math import prod; all_true = prod(bools) == 1
+
 # better
 any_true, all_true = any(bools), all(bools)  # even better: they stop early
 
@@ -127,7 +136,7 @@ squared = [e**2 for e in elems]
 evens = [e for e in elems if e % 2 == 0]
 # using map & filter
 squared = map(lambda x: x**2, elems)
-evens = filter(lambda x: x % 2 == 1, elems)  # "x == 1" is slightly redundant, as in python True=1 and False=0. But modulo does not necessarily produce a bool, so being explicit is nice
+evens = filter(lambda x: x % 2 == 1, elems)  # "x == 1" is slightly redundant for mod 2, as in python True=1 and False=0. But being explicit about it is nice
 # doesn't seem any nicer? Can be great for readibility if the functions are predefined:
 def square(x): return x * x
 def is_odd(x): return x % 2 == 1
@@ -136,6 +145,7 @@ evens = filter(is_odd, elems)
 # can use these with any, all and sum
 contains_odd = any(map(is_odd, elems))
 num_odd = sum(map(is_odd, elems))  # since True=1 and False=0, we can sum over them
+num_odd = len(list(filter(is_odd, elems)))
 sum_of_odds = sum(filter(is_odd, elems))
 
 # Min, Max and Sorting
@@ -166,7 +176,7 @@ def get_char(t):
 min_char, max_char = min(vals, key=get_char), max(vals, key=get_char)
 # use "reverse" flag to get descending 
 sorted_by_char_desc = sorted(vals, key=get_char, reverse=True)
-
+# later: use itemgetter from operators lib and set key=itemgetter(1)
 
 
 # Stdlib functions and classes
@@ -309,7 +319,7 @@ def extract_values(tree):
     if type(tree) == Leaf:
         result += tree.content
     else:
-        for branch in (tree.left, tree.right):
+        for branch in (tree.left, tree.right):  # or: result += ext_vals(left) + ext_vals(right)
             result += extract_values(branch)
     
     return result
