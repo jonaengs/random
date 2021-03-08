@@ -1,21 +1,12 @@
 Code.require_file "game.ex"
+Code.require_file "main.ex"
+Code.require_file "player.ex"
 
-defmodule Player do
-  def init(conn), do: spawn(fn -> loop(conn) end)
 
-  defp loop(conn, state \\ 0) do
-    recv = receive do
-      {:update, gamestate} ->
-        Enum.reduce(Map.values(gamestate), 0, &max/2)
-      after
-        :rand.uniform(1000) -> 0
-    end
-    state = max(recv, state) |> max(:rand.uniform(1000))
-    send(conn, {:game_data, self(), state})
-    loop(conn, state)
-  end
-end
+MainController.init()
 
-gn_pid = GameNetwork.init()
-players = [Player.init(gn_pid), Player.init(gn_pid), Player.init(gn_pid)]
-send(gn_pid, {:players, players})
+Player.init(:create) |> Process.register(:p1)
+Player.init({:join, "123456"}) |> Process.register(:p2)
+Player.init({:join, "123456"}) |> Process.register(:p3)
+
+Process.send_after(:p1, :start_game, 3_000)

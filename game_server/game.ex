@@ -1,8 +1,14 @@
 defmodule GameLogic do
-  def init(network_pid), do: spawn(fn -> loop(network_pid, %{}) end)
+  def init(network_pid), do: spawn fn -> loop(network_pid, %{}) end
+
+  def proc_name(pid), do: pid |> Process.info(:registered_name) |> elem(1)
+
+  defp print_gamestate(gamestate) do
+    gamestate |> Enum.map(fn {k, v} -> "#{proc_name(k)}: #{v}" end) |> Enum.join(", ") |> IO.puts()
+  end
 
   defp loop(network_pid, gamestate) do
-    IO.inspect(gamestate)
+    print_gamestate(gamestate)
     receive do
       {:update, player_data} ->
         gamestate = Map.merge(gamestate, player_data)
@@ -16,14 +22,10 @@ end
 defmodule GameNetwork do
   @tick_rate 1000
 
-  def init, do: spawn(fn -> start() end)
-
-  defp start do
-    receive do
-      {:players, players} ->
-        Process.send_after(self(), :tick, @tick_rate)
-        loop(players, GameLogic.init(self()))
-    end
+  def init(players) do
+    pid = spawn fn -> loop(players, GameLogic.init(self())) end
+    Process.send_after(pid, :tick, @tick_rate)
+    pid
   end
 
   defp loop(players, game_pid, player_data \\ %{}) do
